@@ -36,24 +36,10 @@ curl -H "Authorization: Bearer $(gcloud auth print-access-token)" \
 
 gcloud container clusters create python-cluster \
 --zone us-central1-a \
+--num-nodes 1 \
+--machine-type e2-standard-8 \
 --workload-pool ${PROJECT_ID}.svc.id.goog --async
 
-## SPANNER
-export SPANNER_INSTANCE=music-catalog 
-export SPANNER_DB=musicians REGION=us-east1
-gcloud spanner instances create $SPANNER_INSTANCE \
-    --config=regional-${REGION} \
-    --description="Music Catalog" \
-    --processing-units=100
-
-export SPANNER_CONNECTION_STRING=projects/$PROJECT_ID/instances/$SPANNER_INSTANCE/databases/$SPANNER_DB
-
-gcloud spanner databases create $SPANNER_DB --instance=$SPANNER_INSTANCE --ddl='CREATE TABLE Singers (
-            SingerId     INT64 NOT NULL,
-            FirstName    STRING(1024),
-            LastName     STRING(1024),
-            SingerInfo   BYTES(MAX)
-        ) PRIMARY KEY (SingerId)'
 
 #Dockerfile for custom cloud workstation image
 cat <<EOF > cw/Dockerfile
@@ -112,12 +98,14 @@ export RECONCILING="true"
 export RECONCILING=$(curl -H "Authorization: Bearer $(gcloud auth print-access-token)" \
         -H "Content-Type: application/json" \
         "https://workstations.googleapis.com/v1beta/projects/$PROJECT_ID/locations/$REGION/workstationClusters/${WS_CLUSTER}" | jq -r '.reconciling')
+echo "Is Cloud Workstation still RECONCILING? : $RECONCILING"
 while [ $RECONCILING == "true" ]
     do
         sleep 1m
         export RECONCILING=$(curl -H "Authorization: Bearer $(gcloud auth print-access-token)" \
         -H "Content-Type: application/json" \
         "https://workstations.googleapis.com/v1beta/projects/$PROJECT_ID/locations/$REGION/workstationClusters/${WS_CLUSTER}" | jq -r '.reconciling')
+        echo "Is Cloud Workstation still RECONCILING? : $RECONCILING"
     done
 
 rm -rf cw
